@@ -1,8 +1,11 @@
 #!/bin/bash
 # imaging_module_setting_check
 # This script verifies OS and network settings for the imaging module environment.
+# note currently test set to P2 2.6 setup for 3.0 uncomment some of the checks
 
-#---- version report -----------
+############################################################
+# Version Argument Handling
+############################################################
 Version="0.0.1"
 HW_dependency="none"
 SW_dependency="none"
@@ -19,14 +22,48 @@ if [[ "$1" == --* ]]; then
     fi
     exit 0
 fi
-#==============================  
-#!/bin/bash
-# imaging_module_setting_check
-# This script verifies OS, network, and hardware settings for the imaging module.
+
+
+VERBOSE=false
+if [[ "$1" == "--verbose" || "$1" == "-v" ]]; then
+    VERBOSE=true
+fi
+
+function debug_msg() {
+    if $VERBOSE; then
+        echo -e "\n--- DEBUG: $1 ---"
+    fi
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    echo "--verbose; -v"
+fi
+
+
+
+# Function to run a command and capture output
+run_cmd() {
+    local CMD="$1"
+    if $VERBOSE; then
+        echo -e "\n--- DEBUG: Running: $CMD ---"
+    fi
+
+    # Execute the command in a shell so pipes work
+    local OUTPUT
+    OUTPUT=$(bash -c "$CMD" 2>&1)
+
+    if $VERBOSE; then
+        echo -e "--- DEBUG Output ---\n$OUTPUT\n"
+    fi
+
+    echo "$OUTPUT"
+}
 
 echo "==============================================================="
-echo " Imaging Module Environment Validation"
+echo " Imaging Module Environment Validation 2.7 "
 echo "==============================================================="
+
+START_TIME=$(date +%s)
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -47,17 +84,19 @@ function check_result() {
     fi
 }
 
-# ------------------------------------------------------------
-# 1. Check network interfaces exist for specific IPs
-# ------------------------------------------------------------
+############################################################
+# 1. Check network interfaces for specific IPs
+############################################################
 declare -A IP_LABELS=(
     ["192.168.3.2"]="tele"
-    ["192.168.2.2"]="front/back"
-    ["192.168.1.2"]="front/back"
+#    ["192.168.2.2"]="front/back"
+#    ["192.168.1.2"]="front/back"
 )
 
 for IP in "${!IP_LABELS[@]}"; do
-    IFACE=$(ip -4 addr show | awk -v ip="$IP" '$0 ~ ip {print $NF}')
+    OUTPUT=$(run_cmd "ip -4 addr show | awk -v ip=\"$IP\" '\$0 ~ ip {print \$NF}'")
+    IFACE="$OUTPUT"
+
     if [ -n "$IFACE" ]; then
         check_result 0 "Interface for ${IP_LABELS[$IP]} ($IP)" "Exists" "$IFACE"
     else
@@ -65,13 +104,13 @@ for IP in "${!IP_LABELS[@]}"; do
     fi
 done
 
-# ------------------------------------------------------------
+############################################################
 # 2. Check MTU values = 9000
-# ------------------------------------------------------------
+############################################################
 for IP in "${!IP_LABELS[@]}"; do
     IFACE=$(ip -4 addr show | awk -v ip="$IP" '$0 ~ ip {print $NF}')
     if [ -n "$IFACE" ]; then
-        MTU=$(ip link show "$IFACE" | awk '/mtu/ {print $5}')
+        MTU=$(run_cmd "ip link show \"$IFACE\" | awk '/mtu/ {print \$5}'")
         if [ "$MTU" -eq 9000 ] 2>/dev/null; then
             check_result 0 "MTU for $IFACE ($IP)" "9000" "$MTU"
         else
@@ -82,21 +121,24 @@ for IP in "${!IP_LABELS[@]}"; do
     fi
 done
 
-# ------------------------------------------------------------
+############################################################
 # 3. Ping remote devices
-# ------------------------------------------------------------
-REMOTE_IPS=("192.168.3.100" "192.168.2.100" "192.168.1.100")
+############################################################
+#REMOTE_IPS=("192.168.3.100" "192.168.2.100" "192.168.1.100")
+REMOTE_IPS=("192.168.3.100")
+
 for IP in "${REMOTE_IPS[@]}"; do
-    if ping -c 2 -W 2 "$IP" &>/dev/null; then
-        check_result 0 "Ping remote device $IP" "Reachable" "Reachable"
-    else
+    PING_OUT=$(run_cmd "ping -c 2 -W 2 \"$IP\"")
+    if echo "$PING_OUT" | grep -q "0 received"; then
         check_result 1 "Ping remote device $IP" "Reachable" "Unreachable"
+    else
+        check_result 0 "Ping remote device $IP" "Reachable" "Reachable"
     fi
 done
 
-# ------------------------------------------------------------
+############################################################
 # 4. Check sysctl buffer values
-# ------------------------------------------------------------
+############################################################
 declare -A SYSCTL_EXPECT=(
     ["net.core.rmem_default"]="655360000"
     ["net.core.wmem_default"]="655360000"
@@ -104,84 +146,84 @@ declare -A SYSCTL_EXPECT=(
     ["net.core.wmem_max"]="500000000"
 )
 
-SYSCTL_OUTPUT=$(sysctl -p 2>/dev/null)
+SYSCTL_OUTPUT=$(run_cmd "echo horizon | sudo -S sysctl -p")
 
 for KEY in "${!SYSCTL_EXPECT[@]}"; do
-    VAL_EXPECT="${SYSCTL_EXPECT[$KEY]}"
-    VAL_FOUND=$(echo "$SYSCTL_OUTPUT" | grep "$KEY" | awk -F= '{print $2}' | tr -d ' ')
-    if [ "$VAL_FOUND" == "$VAL_EXPECT" ]; then
-        check_result 0 "$KEY" "$VAL_EXPECT" "$VAL_FOUND"
+    EXPECT="${SYSCTL_EXPECT[$KEY]}"
+    FOUND=$(echo "$SYSCTL_OUTPUT" | grep "$KEY" | awk -F= '{print $2}' | tr -d ' ')
+    if [ "$FOUND" == "$EXPECT" ]; then
+        check_result 0 "$KEY" "$EXPECT" "$FOUND"
     else
-        check_result 1 "$KEY" "$VAL_EXPECT" "${VAL_FOUND:-Not found}"
+        check_result 1 "$KEY" "$EXPECT" "${FOUND:-Not found}"
     fi
 done
 
-# ------------------------------------------------------------
-# 5. Check horizon-loopback-mtu.service status
-# ------------------------------------------------------------
-if systemctl is-active --quiet horizon-loopback-mtu.service; then
-    STATUS="active"
-    check_result 0 "Service horizon-loopback-mtu.service" "active (running)" "$STATUS"
+############################################################
+# 5. horizon-loopback-mtu.service status
+############################################################
+SERVICE_STATUS=$(run_cmd "systemctl is-active horizon-loopback-mtu.service")
+if [[ "$SERVICE_STATUS" == "active" ]]; then
+    check_result 0 "Service horizon-loopback-mtu.service" "active (running)" "$SERVICE_STATUS"
 else
-    STATUS=$(systemctl is-active horizon-loopback-mtu.service 2>/dev/null)
-    check_result 1 "Service horizon-loopback-mtu.service" "active (running)" "${STATUS:-inactive}"
-fi
+    check_result 1 "Service horizon-loopback-mtu.service" "active (running)" "$SERVICE_STATUS"
+    fi
 
-# ------------------------------------------------------------
-# 6. Check if ptpd services exist
-# ------------------------------------------------------------
-for SVC in ptpd-service-0 ptpd-service-1; do
-    if systemctl list-unit-files | grep -q "$SVC"; then
+############################################################
+# 6. Check PTPD service existence
+############################################################
+#for SVC in ptpd-service-0 ptpd-service-1; do
+for SVC in ptpd-service-0; do
+    EXISTS=$(run_cmd "systemctl list-unit-files | grep -q \"$SVC\" && echo yes || echo no")
+    if [[ "$EXISTS" == "yes" ]]; then
         check_result 0 "Service $SVC" "Exists" "Exists"
     else
         check_result 1 "Service $SVC" "Exists" "Missing"
     fi
 done
 
-# ------------------------------------------------------------
-# 7. Check if udev rule exists
-# ------------------------------------------------------------
+############################################################
+# 7. udev rule exists
+############################################################
 RULE_PATH="/etc/udev/rules.d/99-arduino.rules"
+
 if [ -f "$RULE_PATH" ]; then
     check_result 0 "udev rule $RULE_PATH" "Exists" "Exists"
 else
     check_result 1 "udev rule $RULE_PATH" "Exists" "Missing"
 fi
 
-# ------------------------------------------------------------
+############################################################
 # 8. Check if 10.10.0.x interface exists
-# ------------------------------------------------------------
-IFACE_1010=$(ip -4 addr show | grep -o "10\.10\.0\.[0-9]*" | head -n1)
+############################################################
+IFACE_1010=$(run_cmd "ip -4 addr show | grep -o \"10\.10\.0\.[0-9]*\" | head -n1")
+
 if [ -n "$IFACE_1010" ]; then
     check_result 0 "Interface 10.10.0.x" "Exists" "$IFACE_1010"
 else
     check_result 1 "Interface 10.10.0.x" "Exists" "Not found"
 fi
 
-# ------------------------------------------------------------
-# 9. Check if Alazar card is in PCIe Gen2 slot 4
-# ------------------------------------------------------------
-ALAZAR_INFO=$(lspci -vv | grep -A10 "9373" 2>/dev/null)
+############################################################
+# 9. Check Alazar PCIe device presence
+############################################################
+ALAZAR_INFO=$(run_cmd "lspci -vv | grep -A10 \"9373\"")
 
 if [ -z "$ALAZAR_INFO" ]; then
-    check_result 1 "Alazar (9373) PCIe card" "Detected " "Not detected"
+    check_result 1 "Alazar (9373) PCIe card" "Detected" "Not detected"
 else
-    check_result 0 "Alazar (9373) PCIe card" "Detected " "Detected"
+    check_result 0 "Alazar (9373) PCIe card" "Detected" "Detected"
 fi
 
-
-
-# ------------------------------------------------------------
-# 10. Check AlazarSysInfo details
-# ------------------------------------------------------------
+############################################################
+# 10. AlazarSysInfo validation
+############################################################
 ALAZAR_SYSINFO_CMD="/usr/local/AlazarTech/ats9373-7.12.0/AlazarSysInfo"
 
 if [ -x "$ALAZAR_SYSINFO_CMD" ]; then
-    SYSINFO_OUTPUT=$(bash -c "$ALAZAR_SYSINFO_CMD" 2>/dev/null)
+    SYSINFO_OUTPUT=$(run_cmd "$ALAZAR_SYSINFO_CMD")
     if [ -z "$SYSINFO_OUTPUT" ]; then
         check_result 1 "AlazarSysInfo output" "Valid system info" "No output"
     else
-        # Expected values
         declare -A SYSINFO_EXPECTS=(
             ["ATSApi Version:"]="7.12.0"
             ["System"]="System 1 : Board 1"
@@ -194,12 +236,12 @@ if [ -x "$ALAZAR_SYSINFO_CMD" ]; then
         )
 
         for KEY in "${!SYSINFO_EXPECTS[@]}"; do
-            EXPECTED="${SYSINFO_EXPECTS[$KEY]}"
-            ACTUAL=$(echo "$SYSINFO_OUTPUT" | grep "$KEY" | sed 's/^[[:space:]]*//')
-            if [[ "$ACTUAL" == *"$EXPECTED"* ]]; then
-                check_result 0 "AlazarSysInfo: $KEY" "$EXPECTED" "$ACTUAL"
+            EXPECT="${SYSINFO_EXPECTS[$KEY]}"
+            ACTUAL=$(echo "$SYSINFO_OUTPUT" | grep "$KEY")
+            if [[ "$ACTUAL" == *"$EXPECT"* ]]; then
+                check_result 0 "AlazarSysInfo: $KEY" "$EXPECT" "$ACTUAL"
             else
-                check_result 1 "AlazarSysInfo: $KEY" "$EXPECTED" "${ACTUAL:-Not found}"
+                check_result 1 "AlazarSysInfo: $KEY" "$EXPECT" "${ACTUAL:-Not found}"
             fi
         done
     fi
@@ -207,12 +249,15 @@ else
     check_result 1 "AlazarSysInfo executable" "Exists & executable" "Not found"
 fi
 
-
-# ------------------------------------------------------------
+############################################################
 # Summary
-# ------------------------------------------------------------
+############################################################
+END_TIME=$(date +%s)
+RUNTIME=$((END_TIME - START_TIME))
+
 echo "==============================================================="
 echo " Checks completed: $PASS_COUNT passed, $FAIL_COUNT failed."
+echo " Total runtime: ${RUNTIME}s"
 echo "==============================================================="
 
 exit $FAIL_COUNT
@@ -238,9 +283,6 @@ ping check remote device
 	192.168.2.100
 	192.168.1.100
 
-
-
-
 check if sysctl -p prints out correct buffer values for
 	net.core.rmem_default = 655360000
 	net.core.wmem_default = 655360000
@@ -262,5 +304,11 @@ check 10.10.0.x interace exist
 Check if Alazar (9373) card is installed on PCIE - there is no way to check installed slot position
 
 run AlazarSysInfo check for version and PCI speed
+
+implement verbose flag that show debug message of what command was used and return of the commands.
+
+implement -h for help
+
+do not remove commented codes
 
 END_COMMENT

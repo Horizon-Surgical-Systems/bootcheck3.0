@@ -48,6 +48,7 @@ text_style_reset=$(tput sgr0)
 # Define sub-check scripts (local only)
 functionlist=(
   ./CPU_GPU_MEM_Disk_Temp_check.sh
+  ./imaging_module_setting_check.sh
 )
 
 # Optionally, define scripts that should only run once
@@ -65,11 +66,12 @@ while true; do
   # Run each local check function/script
   for each_func in "${functionlist[@]}"; do
     if [[ -x "$each_func" ]]; then
-      echo -e "$text_style_reset"
-      echo -e "$title 🔍 Running $each_func locally...$text_style_reset"
+      echo -e "$text_style_reset "
+      #echo -e "$title 🔍 Running $each_func locally...$text_style_reset"
+      echo -e "$text_style_reset "
       $each_func
       if [[ $? -ne 0 ]]; then
-        echo -e "$red⚠️  Warning: $each_func failed locally.$text_style_reset"
+        #echo -e "$red⚠️  Warning: $each_func failed locally.$text_style_reset"
         ((issue_found++))
       fi
     else
@@ -81,7 +83,7 @@ while true; do
   # Run-once checks (also local)
   for each_func_runonce in "${functionlist_runonce[@]}"; do
     if [[ -x "$each_func_runonce" ]]; then
-      echo -e "$title 🔄 Running single-execution check: $each_func_runonce$text_style_reset"
+      #echo -e "$title 🔄 Running single-execution check: $each_func_runonce$text_style_reset"
       $each_func_runonce
       if [[ $? -ne 0 ]]; then
         ((issue_found++))

@@ -1,0 +1,13 @@
+show checking moudle title at beginning to checkings
+
+show checking summary at the end of checking includes # of passed and failed and total runtime.
+
+show indivitual checking output format
+ [PASS] <Check Name>   Expected: <expected>   Actual: <actual>
+ [FAIL] <Check Name>   Expected: <expected>   Actual: <actual>  
+
+implement verbose flag that show debug message of what command was used and return of the commands.
+
+implement -h for help
+
+do not remove commented codes
