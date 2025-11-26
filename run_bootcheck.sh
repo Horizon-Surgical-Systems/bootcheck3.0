@@ -34,7 +34,8 @@ Version: $Version
 # Expected to run locally only.
 # Calls sub-checking scripts (like CPU_GPU_MEM_Disk_Temp_check.sh).
 # 3.0.3 update to show version number, and remove ask to re-run checking after fail
------------------------------------------------------------------------------
+# 3.0.4 read host name and run host name targeted check
+#-----------------------------------------------------------------------------
 
 
 # =======================
@@ -47,19 +48,36 @@ text_style_reset=$(tput sgr0)
 # =======================
 
 # Define sub-check scripts (local only)
-functionlist=(
+dev_functionlist=(
+  ./DevPC_CPU_MEM_Temp_check.sh
+)
+imaging_functionlist=(
   ./CPU_GPU_MEM_Disk_Temp_check.sh
+  ./imaging_module_setting_check.sh
 )
 
-# Optionally, define scripts that should only run once
-functionlist_runonce=(
-  # Example: ./NetworkConfig_check.sh
-)
 
 # -----------------------------------------------------------------------------
 # Main Execution Loop
 # -----------------------------------------------------------------------------
 #while true; do
+
+  #!/bin/bash
+  HOST=$(hostname)
+  if [[ "$HOST" == *"TestLibraryServer"* ]]; then
+      functionlist="$dev_functionlist"
+
+  elif [[ "$HOST" == *"LAPTOP"* ]]; then
+      functionlist="$dev_functionlist"
+
+  elif [[ "$HOST" == *"linuxPC"* ]]; then
+      functionlist="$dev_functionlist"
+
+  elif [[ "$HOST" == *"imaging"* ]]; then
+      functionlist="$imaging_functionlist"
+
+  fi
+
   issue_found=0  # Track number of failures
   SECONDS=0      # Reset timer
 
@@ -67,7 +85,7 @@ functionlist_runonce=(
   for each_func in "${functionlist[@]}"; do
     if [[ -x "$each_func" ]]; then
       echo -e "$text_style_reset"
-      echo -e "$title 🔍 Running $each_func locally...$text_style_reset"
+      echo -e "$title  Running $each_func $HOST $text_style_reset"
       $each_func
       if [[ $? -ne 0 ]]; then
         echo -e "$red⚠️  Warning: $each_func failed locally.$text_style_reset"
@@ -79,16 +97,7 @@ functionlist_runonce=(
     fi
   done
 
-  # Run-once checks (also local)
-  for each_func_runonce in "${functionlist_runonce[@]}"; do
-    if [[ -x "$each_func_runonce" ]]; then
-      echo -e "$title 🔄 Running single-execution check: $each_func_runonce$text_style_reset"
-      $each_func_runonce
-      if [[ $? -ne 0 ]]; then
-        ((issue_found++))
-      fi
-    fi
-  done
+
 
   # Timing summary
   total_time=$SECONDS
