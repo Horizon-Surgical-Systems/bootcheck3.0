@@ -109,5 +109,5 @@ find -P "$scan_dir" \
         printf "${GREEN}%-20s${NC} %s\n" "$filename" "$output"
 
     fi
-    
+
 done

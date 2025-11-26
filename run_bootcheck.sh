@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Absolute path to the directory where THIS script is located
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+#SCRIPT_DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#SCRIPT_DIR="${SCRIPT_DIR%/.}"
 #---- version report -----------
 Version="3.0.3"
 HW_dependency="none"
@@ -47,13 +52,14 @@ green=$(tput setaf 2)
 text_style_reset=$(tput sgr0)
 # =======================
 
+
 # Define sub-check scripts (local only)
 dev_functionlist=(
-  ./DevPC_CPU_MEM_Temp_check.sh
+  DevPC_CPU_MEM_Temp_check.sh
 )
 imaging_functionlist=(
-  ./CPU_GPU_MEM_Disk_Temp_check.sh
-  ./imaging_module_setting_check.sh
+  CPU_GPU_MEM_Disk_Temp_check.sh
+  imaging_module_setting_check.sh
 )
 
 
@@ -83,16 +89,16 @@ imaging_functionlist=(
 
   # Run each local check function/script
   for each_func in "${functionlist[@]}"; do
-    if [[ -x "$each_func" ]]; then
+    if [[ -x "$SCRIPT_DIR/$each_func" ]]; then
       echo -e "$text_style_reset"
       echo -e "$title  Running $each_func $HOST $text_style_reset"
-      $each_func
+      $SCRIPT_DIR/$each_func
       if [[ $? -ne 0 ]]; then
-        echo -e "$red⚠️  Warning: $each_func failed locally.$text_style_reset"
+        echo -e "$red⚠️  Warning: $each_func failed.$text_style_reset"
         ((issue_found++))
       fi
     else
-      echo -e "$yellow⚠️  Skipping missing or non-executable script: $each_func$text_style_reset"
+      echo -e "$yellow⚠️  Skipping missing or non-executable script: $each_func $text_style_reset"
       ((issue_found++))
     fi
   done

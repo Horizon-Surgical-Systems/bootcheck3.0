@@ -1,12 +1,14 @@
 #!/bin/bash
 
-
 # V1 11/25/2025
 # This script checks developer PC/ laptop system
 #   CPU, RAM (Memory), and physical mounted Disk space.
-# I
 #
 #
+#
+
+# Absolute path to the directory where THIS script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 #---- version report -----------
 Version="0.0.1"
@@ -14,7 +16,7 @@ HW_dependency="none"
 SW_dependency="none"
 
 if [[ "$1" == --* && "$1" != "--verbose" && "$1" != "-v" && "$1" != "-h" ]]; then
-    report_script="./VersionDependencyReportClass.sh"
+    report_script="$SCRIPT_DIR/VersionDependencyReportClass.sh"
     if [[ -f "$report_script" ]]; then
         export Version HW_dependency SW_dependency TestCaseID RequirementID
         "$report_script" "$1"
@@ -63,7 +65,7 @@ VERBOSE=false
 # ================================================================
 # Load utilities
 # ================================================================
-source ./utils_function.sh
+source $SCRIPT_DIR/utils_function.sh
 
 PASSWORD="$SSH_PASS"
 REMOTE_PC=""

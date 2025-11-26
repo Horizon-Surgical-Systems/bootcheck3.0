@@ -3,6 +3,10 @@
 # This script verifies OS and network settings for the imaging module environment.
 # note currently test set to P2 2.6 setup for 3.0 uncomment some of the checks
 
+
+# Absolute path to the directory where THIS script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ############################################################
 # Version Argument Handling
 ############################################################
@@ -12,7 +16,7 @@ SW_dependency="none"
 TestCaseID="none"
 RequirementID=("none")
 if [[ "$1" == --* ]]; then
-    report_script="$AUTOMATEDTESTTOOL/VersionDependencyReportClass.sh"
+    report_script="$SCRIPT_DIR/VersionDependencyReportClass.sh"
     if [[ -f "$report_script" ]]; then
         export Version HW_dependency SW_dependency TestCaseID RequirementID
         "$report_script" "$1"

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # V1 4/15/2025
 # This script checks CPU, GPU, RAM (Memory), and physical mounted Disk space.
 # It will fail if the available percentage is less than 10%.
@@ -29,8 +28,11 @@ Version="0.0.9"
 HW_dependency="none"
 SW_dependency="nvidia-smi"
 
+# Absolute path to the directory where THIS script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [[ "$1" == --* && "$1" != "--verbose" && "$1" != "-v" && "$1" != "-h" ]]; then
-    report_script="./VersionDependencyReportClass.sh"
+    report_script="$SCRIPT_DIR/VersionDependencyReportClass.sh"
     if [[ -f "$report_script" ]]; then
         export Version HW_dependency SW_dependency TestCaseID RequirementID
         "$report_script" "$1"
@@ -49,7 +51,7 @@ cat <<EOF
 System Validation Script - Help
 
 Usage:
-  ./validate.sh [OPTIONS]
+  ./validate [OPTIONS]
 
 Options:
   -h              Show help
@@ -79,7 +81,7 @@ VERBOSE=false
 # ================================================================
 # Load utilities
 # ================================================================
-source ./utils_function.sh
+source $SCRIPT_DIR/utils_function.sh
 
 PASSWORD="$SSH_PASS"
 REMOTE_PC=""
